@@ -1,0 +1,23 @@
+2013-10-06
+
+将php.zip解压到 c:\ 
+得到 c:\php\目录。
+
+Rename c:\php\php.ini-development to c:\php\php.ini. 
+
+Edit c:\php\php.ini, search for
+;extension=php_curl.dll
+and remove the semicolon in front of the line and add an “ext/” in front of “php_curl.dll” so that it looks like this:
+extension=ext/php_curl.dll
+
+Save the file and exit.
+
+
+Head to the 7-Zip download page and get the command line version. Unpack it and put 7za.exe in the same directory (c:\php\).
+
+
+将my_download_data.php和my_process_data.php复制到 c:\php\
+
+编译c++项目后，将currencypair.txt和option.ini复制到生成的exe文件所在目录。
+
+运行exe即可开始。
