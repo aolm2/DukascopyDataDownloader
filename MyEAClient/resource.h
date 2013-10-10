@@ -10,8 +10,20 @@
 #define IDR_MENU1                       129
 #define IDD_DIALOG1                     130
 #define IDD_DIALOGSELECTDATE            130
+#define IDD_DIALOGPERIOD                131
+#define IDD_DIALOG2                     132
 #define IDC_EDIT1                       1000
 #define IDC_DATETIMEPICKER1             1002
+#define IDC_CHECKM1                     1003
+#define IDC_CHECKM5                     1004
+#define IDC_CHECKM15                    1005
+#define IDC_CHECKM30                    1006
+#define IDC_CHECKH1                     1007
+#define IDC_CHECKH4                     1008
+#define IDC_CHECKD1                     1009
+#define IDC_BUTTON1                     1010
+#define IDC_BUTTON2                     1011
+#define IDC_COMBO1                      1012
 #define ID_FILE_EXIT                    32771
 #define ID_HELP_ABOUT                   32772
 #define ID_FILE_DOWNLOADDUKASCOPYDATA   32773
@@ -24,14 +36,25 @@
 #define ID_Menu                         32780
 #define ID_FILE_CONVERTRAW1MINFILETOHST1MIN 32781
 #define ID_FILE_CONVERTBINTORAW1MINFILE 32782
+#define ID_FILE_CONVERTRAW1MINFILETOHSTFILES 32783
+#define ID_FILE_HSTFILESPERIOD          32784
+#define ID_HSTFILESPERIOD_1MINUTE       32785
+#define ID_HSTFILESPERIOD_5MINUTE       32786
+#define ID_HSTFILESPERIOD_15MINUTE      32787
+#define ID_HSTFILESPERIOD_M30           32788
+#define ID_HSTFILESPERIOD_H1            32789
+#define ID_HSTFILESPERIOD_H4            32790
+#define ID_HSTFILESPERIOD_D1            32791
+#define ID_FILE_CHANGECURRENCYPAIR      32792
+#define ID_EX                           32793
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        131
-#define _APS_NEXT_COMMAND_VALUE         32783
-#define _APS_NEXT_CONTROL_VALUE         1003
+#define _APS_NEXT_RESOURCE_VALUE        133
+#define _APS_NEXT_COMMAND_VALUE         32794
+#define _APS_NEXT_CONTROL_VALUE         1013
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

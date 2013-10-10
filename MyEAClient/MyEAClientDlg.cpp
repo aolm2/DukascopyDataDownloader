@@ -5,6 +5,9 @@
 #include "MyEAClient.h"
 #include "MyEAClientDlg.h"
 
+#include "PeriodDlg.h"
+#include "PickPairDlg.h"
+
 #include "Shlwapi.h"
 #include "SelectDateDlg.h"
 
@@ -60,6 +63,14 @@ CMyEAClientDlg::CMyEAClientDlg(CWnd* pParent /*=NULL*/)
 	m_clientcount = 0;
 	m_bBusy = false;
 
+	m_bM1 = TRUE; 
+	m_bM5 = TRUE; 
+	m_bM15 = TRUE; 
+	m_bM30 = TRUE; 
+	m_bH1 = TRUE; 
+	m_bH4 = TRUE; 
+	m_bD1 = TRUE;
+
 }
 
 void CMyEAClientDlg::DoDataExchange(CDataExchange* pDX)
@@ -84,12 +95,16 @@ BEGIN_MESSAGE_MAP(CMyEAClientDlg, CDialog)
 	ON_COMMAND(ID_VIEW_CLEAR, &CMyEAClientDlg::OnViewClear)
 	ON_COMMAND(ID_HELP_ABOUT, &CMyEAClientDlg::OnHelpAbout)
 	ON_COMMAND(ID_FILE_CONVERTBINTOCSVTICKFILE, &CMyEAClientDlg::OnFileConvertbintocsvtickfile)
-	ON_COMMAND(ID_FILE_CONVERTRAW1MINFILETOHST1MIN, &CMyEAClientDlg::OnFileConvertraw1minfiletohst1min)
 	ON_COMMAND(ID_FILE_CONVERTBINTORAW1MINFILE, &CMyEAClientDlg::OnFileConvertbintoraw1minfile)
 	ON_UPDATE_COMMAND_UI(ID_FILE_DOWNLOADDUKASCOPYDATA, &CMyEAClientDlg::OnUpdateFileDownloaddukascopydata)
 	ON_UPDATE_COMMAND_UI(ID_FILE_CONVERTBINTOCSVTICKFILE, &CMyEAClientDlg::OnUpdateFileConvertbintocsvtickfile)
 	ON_UPDATE_COMMAND_UI(ID_FILE_CONVERTBINTORAW1MINFILE, &CMyEAClientDlg::OnUpdateFileConvertbintoraw1minfile)
-	ON_UPDATE_COMMAND_UI(ID_FILE_CONVERTRAW1MINFILETOHST1MIN, &CMyEAClientDlg::OnUpdateFileConvertraw1minfiletohst1min)
+	ON_COMMAND(ID_FILE_CONVERTRAW1MINFILETOHSTFILES, &CMyEAClientDlg::OnFileConvertraw1minfiletohstfiles)
+	ON_UPDATE_COMMAND_UI(ID_FILE_CONVERTRAW1MINFILETOHSTFILES, &CMyEAClientDlg::OnUpdateFileConvertraw1minfiletohstfiles)
+	ON_UPDATE_COMMAND_UI(ID_VIEW_CLEAR, &CMyEAClientDlg::OnUpdateViewClear)
+	ON_COMMAND(ID_FILE_CHANGECURRENCYPAIR, &CMyEAClientDlg::OnFileChangecurrencypair)
+	ON_UPDATE_COMMAND_UI(ID_FILE_CHANGECURRENCYPAIR, &CMyEAClientDlg::OnUpdateFileChangecurrencypair)
+	ON_COMMAND(ID_FILE_EXIT, &CMyEAClientDlg::OnFileExit)
 END_MESSAGE_MAP()
 
 
@@ -358,28 +373,23 @@ void ThreadDownloadBINFunc(DWORD dwparam)
 
 /*************************************************
 函数名称:	ConvertWeekBINtoCSV
-修改日期:    2013-7-15
+修改日期:    2013-10-07
 函数功能:    转换一周的BIN数据到CSV tick文件。
 输入参数: 
 	- pdlg 指向CMyEAClientDlg的实例。
 	- tmsundaystart 以Local时间表示的星期天00:00:01，是要转换的一周开始的星期天。
-	- bSkipifRawExists 自动转换时bSkipifRawExists由于CSV仅仅是中间文件，故为真
-						手动转换时bSkipifRawExists为假。
 输出参数: 
 	无。
 返回值: 
-	生成失败返回-1, 如果CSV文件已经存在返回0, 如果CSV文件声称成功返回1,
-	如果bSkipifRawExists为真且RAW文件存在返回2;
+	生成失败返回-1, 如果CSV文件已经存在返回0, 如果CSV文件生成成功返回1,
 全局调用:
 	(in) m_strSymbol - 类成员变量，货币对
 	(in) m_strPhppath
-	(in) m_strInipath
-	(in) m_strDatapath - HST文件存储位置
 其他说明:
-	无。
+	务必保证时间范围内的BIN文件已经成功下载，否则会导致输出CSV文件的数据缺失。
 *************************************************/
 
-int ConvertWeekBINtoCSV(CMyEAClientDlg *pdlg, CTime tmsundaystart,bool bSkipifRawExists)
+int ConvertWeekBINtoCSV(CMyEAClientDlg *pdlg, CTime tmsundaystart)
 {
 	/*计算一周时间差*/
 	CTime t1( 1999, 3, 20, 8, 0, 0 ); 
@@ -395,23 +405,6 @@ int ConvertWeekBINtoCSV(CMyEAClientDlg *pdlg, CTime tmsundaystart,bool bSkipifRa
 	ASSERT((hour==0)&&(min==0)&&(sec==1));
 	ASSERT(tmsundaystart.GetDayOfWeek()==1);
 
-	/*手动选择的时间段则必须保证本周BIN数据存在*/
-	if (!bSkipifRawExists)
-	{
-		CTime nextsundayctm = tmsundaystart + tmspanweek;
-		CTime nextfridayctm = nextsundayctm - tmspanday - tmspanday;
-
-		/*检查BIN数据是否下载*/
-		CString strbinpath;
-		strbinpath.Format("%s%s\\%04d\\%02d\\%02d\\23h_ticks.bi5",
-			pdlg->m_strPhppath,pdlg->m_strSymbol,nextfridayctm.GetYear(),nextfridayctm.GetMonth()-1,nextfridayctm.GetDay());
-		if (!PathFileExists(strbinpath))
-		{
-			pdlg->PrintText("Bin数据不存在! 请下载.");
-			return -1;
-		}
-	}
-
 	/*开始转换*/
 	CTime tmweekstart = tmsundaystart;
 	CTime tmweekend = tmsundaystart + tmspanweek;
@@ -420,15 +413,8 @@ int ConvertWeekBINtoCSV(CMyEAClientDlg *pdlg, CTime tmsundaystart,bool bSkipifRa
 	strstartdate.Format("%04d%02d%02d",tmweekstart.GetYear(),tmweekstart.GetMonth(),tmweekstart.GetDay());
 	strenddate.Format("%04d%02d%02d",tmweekend.GetYear(),tmweekend.GetMonth(),tmweekend.GetDay());
 
-	CString stroutfile,strrawfile;
-	strrawfile.Format("%s%s_raw\\%s-%s.raw",pdlg->m_strPhppath,pdlg->m_strSymbol,strstartdate,strenddate);
+	CString stroutfile;
 	stroutfile.Format("%s%s_csv\\%s-%s.csv",pdlg->m_strPhppath,pdlg->m_strSymbol,strstartdate,strenddate);
-
-	if (PathFileExists(strrawfile) && bSkipifRawExists)
-	{
-		pdlg->PrintText("跳过生成%s", strrawfile);
-		return 2;
-	}
 
 	if (!PathFileExists(stroutfile))
 	{
@@ -458,7 +444,6 @@ int ConvertWeekBINtoCSV(CMyEAClientDlg *pdlg, CTime tmsundaystart,bool bSkipifRa
 		else
 		{
 			pdlg->PrintText("无法启动命令行...");
-			return -1;
 		}
 
 		/*调用命令行完毕，检查是否正确生成CSV，以防中途cmd退出*/
@@ -544,13 +529,13 @@ bool ConvertWeekCSVtoRAW1Min(CMyEAClientDlg *pdlg, CTime tmsundaystart, bool bDe
 
 	if (PathFileExists(strRawfilepath))
 	{
-		pdlg->PrintText("RAW文件已经存在。");
+		pdlg->PrintText("RAW文件已经存在，属于程序逻辑错误。");
 		return true;
 	}
 
 	if (!PathFileExists(strCsvfilepath))
 	{
-		pdlg->PrintText("CSV源数据缺失。");
+		pdlg->PrintText("CSV源数据缺失，属于程序逻辑错误。");
 		return false;
 	}
 
@@ -566,16 +551,16 @@ bool ConvertWeekCSVtoRAW1Min(CMyEAClientDlg *pdlg, CTime tmsundaystart, bool bDe
 	ASSERT(fcsv);
 
 	double d_open, d_low, d_high, d_close,d_bid,d_ask,d_spread,d_vol;
-	int dotmultiper = pdlg->m_nDotMultiper;
+	int dotmultiper = pow(10.0,pdlg->m_NumberOfDecimalDigits);
 	time_t ttm,tlasttm = 0;
 
-	char buf[60];
+	char buf[70];
 	int len;
 	CString strdatetime,strask,strbid;
 	int year,month,day,hh,mm,ss;
 	int pos1,pos2,pos3;
 
-	while(fgets(buf,60,fcsv) != NULL)
+	while(fgets(buf,70,fcsv) != NULL)
 	{
 		len = strlen(buf);
 		buf[len-1] = '\0';  /*去掉换行符*/
@@ -655,8 +640,8 @@ bool ConvertWeekCSVtoRAW1Min(CMyEAClientDlg *pdlg, CTime tmsundaystart, bool bDe
 }
 
 /*************************************************
-函数名称:	ThreadBINtoRAWFunc
-修改日期:    2013-6-12
+函数名称:	ThreadBINtoRAW1MinFunc
+修改日期:    2013-10-07
 函数功能:    转换BIN格式到RAW格式表示的1 Min数据。更新到最近的周末。
 输入参数: 
  - dwparam 存储了指向CDukascopyToHstDlg实例的指针
@@ -669,11 +654,10 @@ bool ConvertWeekCSVtoRAW1Min(CMyEAClientDlg *pdlg, CTime tmsundaystart, bool bDe
 	(in) m_strPhppath
 	(in) m_strInipath
 其他说明:
-	调用前系统时间应该确保正确。
-	无论是否中间CSV是否存在，都会补齐所有RAW文件。
+	调用前系统时间应该确保正确。同时保证没有CSV文件存在于中间目录，且已经下载了最新的BIN数据。
 *************************************************/
 
-void ThreadBINtoRAWFunc(DWORD dwparam)
+void ThreadBINtoRAW1MinFunc(DWORD dwparam)
 {
 	CMyEAClientDlg *pdlg = (CMyEAClientDlg*)dwparam;
 	pdlg->m_bBusy = true;
@@ -714,7 +698,7 @@ void ThreadBINtoRAWFunc(DWORD dwparam)
 		pdlg->m_strPhppath,pdlg->m_strSymbol,lastfridayctm.GetYear(),lastfridayctm.GetMonth()-1,lastfridayctm.GetDay());
 	if (!PathFileExists(strbinpath))
 	{
-		pdlg->PrintText("Bin数据未更新到最近的周末! 请先下载补全。");
+		pdlg->PrintText("Bin数据未更新到最近的周末! 请先下载补全。注意：即使没有此提示，也不表示Bin数据的完整性，因此不确定情况下有必要启动下载确认。");
 		pdlg->PrintText("命令执行完毕。");
 		pdlg->m_bBusy = false;
 		return;
@@ -737,24 +721,39 @@ void ThreadBINtoRAWFunc(DWORD dwparam)
 	CTime tmlastmonday = lastsundayctm + tmspanday;
 	while (tmweekend < tmlastmonday)
 	{
-		/*转换BIN to CSV*/
-		int ret = ConvertWeekBINtoCSV(pdlg,tmweekstart,true);
-		if (ret == -1) break;
-		if (ret == 0) 
+		/*判断raw文件是否已经存在，如果已经存在则跳过*/
+		CString strstartdate,strenddate;
+		strstartdate.Format("%04d%02d%02d",tmweekstart.GetYear(),tmweekstart.GetMonth(),tmweekstart.GetDay());
+		strenddate.Format("%04d%02d%02d",tmweekend.GetYear(),tmweekend.GetMonth(),tmweekend.GetDay());
+
+		CString strrawfile;
+		strrawfile.Format("%s%s_raw\\%s-%s.raw",pdlg->m_strPhppath,pdlg->m_strSymbol,strstartdate,strenddate);
+		if (PathFileExists(strrawfile))
 		{
-			/*转换CSV to RAW*/
-			ConvertWeekCSVtoRAW1Min(pdlg,tmweekstart,false);
-			count++;
+			pdlg->PrintText("跳过生成%s", strrawfile);
+			skippedcount++;
 		}
-		else if (ret == 1) 
+		else
 		{
-			/*转换CSV to RAW*/
-			ConvertWeekCSVtoRAW1Min(pdlg,tmweekstart,true);
-			count++;
-		}
-		else if (ret == 2)
-		{
-			skippedcount++;		
+			/*转换BIN to CSV*/
+			int ret = ConvertWeekBINtoCSV(pdlg,tmweekstart);
+			if (ret == -1) break;
+			else if (ret == 0)
+			{
+				/*中间CSV文件已经存在，按照线程逻辑不应该出现此种情况。*/
+				pdlg->PrintText("出现重叠的CSV中间文件，属于程序逻辑错误。");
+				break;
+			}
+			else if (ret == 1) 
+			{
+				/*转换CSV to RAW*/
+				ConvertWeekCSVtoRAW1Min(pdlg,tmweekstart,true);
+				count++;
+			}
+			else
+			{
+				//不应到此步，否则属于程序逻辑错误。		
+			}
 		}
 
 		tmweekstart += tmspanweek;
@@ -768,12 +767,13 @@ void ThreadBINtoRAWFunc(DWORD dwparam)
 
 
 /*************************************************
-函数名称:	AppendWeekRAWtoHST1Min
-修改日期:    2013-7-15
-函数功能:    转换一周的1 Min RAW数据到1 Min的HST文件，如果HST文件已存在则添加在文件末。
+函数名称:	AppendWeekRAWtoHST
+修改日期:    2013-10-10
+函数功能:    转换一周的1 Min RAW数据到指定周期的HST文件，如果HST文件已存在则添加在文件末。
 输入参数: 
 	- pdlg 指向CMyEAClientDlg的实例。
 	- tmsundaystart 以Local时间表示的星期天00:00:01，是要转换的一周开始的星期天。
+	- period 转换为HST文件的周期, 以分钟为单位。可选为 1 Day, 4H, 1H, 30 Min, 15 Min, 5 Min, 1 Min
 输出参数: 
 	数据添加成功or数据已经存在返回true，否则返回false。
 返回值: 
@@ -786,15 +786,20 @@ void ThreadBINtoRAWFunc(DWORD dwparam)
 其他说明:
 	如HST文件不存在，则创建新的HST文件。
 	已存在的HST文件中则上周数据必须存在，否则会报错。
-	由于RAW数据和HST文件格式除去HST文件头是一致的，只是前者为GMT+0时间戳，所以只需将RAW数据修改时间戳后添加到HST文件尾。
+	RAW数据和HST文件格式除去HST文件头是一致的，只是前者为GMT+0时间戳，且周期为1分钟。
 *************************************************/
 
 
-bool AppendWeekRAWtoHST1Min(CMyEAClientDlg *pdlg, CTime tmsundaystart)
+bool AppendWeekRAWtoHST(CMyEAClientDlg *pdlg, CTime tmsundaystart, int period)
 {
+	pdlg->PrintText("正在转换RAW to HST 周期 %d 分钟", period);
+
+	/*周期最大为1 Day*/
+	ASSERT((period == 60 * 24) || (period == 60 * 4) || (period == 60) || (period == 30)||(period == 15)||(period == 5)||(period == 1));
+
 	/*计算一周时间差*/
-	CTime t1( 1999, 3, 20, 8, 0, 0 ); 
-	CTime t3( 1999, 3, 27, 8, 0, 0 ); 
+	CTime t1( 1999, 3, 20, 8, 0, 0 );
+	CTime t3( 1999, 3, 27, 8, 0, 0 );
 	CTimeSpan tmspanweek = t3 - t1;
 
 	/*验证tmsundaystart时间的有效性*/
@@ -804,9 +809,10 @@ bool AppendWeekRAWtoHST1Min(CMyEAClientDlg *pdlg, CTime tmsundaystart)
 	ASSERT((hour==0)&&(min==0)&&(sec==1));
 	ASSERT(tmsundaystart.GetDayOfWeek()==1);
 
-
 	/*计算Hst文件路径*/
-	CString strHstfilepath = pdlg->m_strDatapath + pdlg->m_strSymbol + "1.hst";
+	CString strHstname;
+	strHstname.Format("%d.hst",period);
+	CString strHstfilepath = pdlg->m_strDatapath + pdlg->m_strSymbol + strHstname;
 
 	/*Hst文件不存在，创建并写入文件头*/
 	if (!PathFileExists(strHstfilepath))
@@ -817,13 +823,17 @@ bool AppendWeekRAWtoHST1Min(CMyEAClientDlg *pdlg, CTime tmsundaystart)
 
 		char c_copyright[64]="(C)opyright 2003, MetaQuotes Software Corp.";
 		int    version=400;
-		char c_symbol[12]="EURUSD";   
-		int    i_digits=5;
+		char c_symbol[12];
+		int    i_digits= pdlg->m_NumberOfDecimalDigits;
 		int    i_unused[13];
-		int    i_period = 1;
+		int    i_period = period;
 		int    i_zero = 0;
 
+		memset(c_symbol, 0, 12);
 		memset(i_unused,0,13*sizeof(int));
+
+		ASSERT(pdlg->m_strSymbol.GetLength()<=10);
+		strcpy(c_symbol,pdlg->m_strSymbol);
 
 		fwrite(&version,sizeof(int),1,fp);
 		fwrite(c_copyright,1,64,fp);
@@ -908,33 +918,85 @@ bool AppendWeekRAWtoHST1Min(CMyEAClientDlg *pdlg, CTime tmsundaystart)
 	int datalen = ftell(fraw);
 	fseek(fraw,0,SEEK_SET);
 
-	#define PACKSIZE 44
+	/*一个pack包含一个DWORD和5个double, 长度为 sizeof(DWORD) + 5 * sizeof(double)*/
+#define PACKSIZE 44 
 	ASSERT(datalen % PACKSIZE == 0);
 	int count = datalen / PACKSIZE;
-	int index;
-
-	DWORD dwgtm;
-	double d_open,d_low,d_high,d_close,d_vol;
 	int lendb = sizeof(double);
-	for (index = 0;index < count;index ++)
+	
+	/*以下代码是对mq4文件的翻译*/
+	int i;
+	int periodseconds= period*60;
+
+	DWORD time0, i_time;
+	double s_open,s_low,s_high,s_close,s_vol;
+	double d_open,d_low,d_high,d_close,d_vol;
+
+	fread(&time0,sizeof(DWORD), 1,fraw);
+	fread(&s_open,lendb,1,fraw);
+	fread(&s_low,lendb,1,fraw);
+	fread(&s_high,lendb,1,fraw);
+	fread(&s_close,lendb,1,fraw);
+	fread(&s_vol,lendb,1,fraw);
+
+	d_open = s_open;
+	d_low = s_low;
+	d_high = s_high;
+	d_close = s_close;
+	d_vol = s_vol;
+
+	time0 += pdlg->m_nServerTimeShift * 3600;
+	i_time = time0 / periodseconds;
+	i_time *= periodseconds;
+
+	
+	for (i = 2;i <= count;i ++)
 	{
-		fread(&dwgtm,sizeof(DWORD), 1,fraw);
-		fread(&d_open,lendb,1,fraw);
-		fread(&d_low,lendb,1,fraw);
-		fread(&d_high,lendb,1,fraw);
-		fread(&d_close,lendb,1,fraw);
-		fread(&d_vol,lendb,1,fraw);
+		fread(&time0,sizeof(DWORD), 1,fraw);
+		fread(&s_open,lendb,1,fraw);
+		fread(&s_low,lendb,1,fraw);
+		fread(&s_high,lendb,1,fraw);
+		fread(&s_close,lendb,1,fraw);
+		fread(&s_vol,lendb,1,fraw);
+		time0 += pdlg->m_nServerTimeShift * 3600;
 
-		/*GMT+0时间转换到Server时间*/
-		dwgtm += pdlg->m_nServerTimeShift * 3600;
+		if ((time0 >= i_time + periodseconds )||(i==count))
+		{
+			if ((i==count)&&(time0 < i_time + periodseconds))
+			{
+				if (d_vol < s_vol) d_vol = s_vol;
+				if (d_low > s_low) d_low = s_low;
+				if (d_high < s_high) d_high = s_high;
+				d_close = s_close;
+			}
 
-		fwrite(&dwgtm,sizeof(DWORD), 1,fp);
-		fwrite(&d_open,lendb,1,fp);
-		fwrite(&d_low,lendb,1,fp);
-		fwrite(&d_high,lendb,1,fp);
-		fwrite(&d_close,lendb,1,fp);
-		fwrite(&d_vol,lendb,1,fp);
-		fflush(fp);
+			fwrite(&i_time,sizeof(DWORD), 1,fp);
+			fwrite(&d_open,lendb,1,fp);
+			fwrite(&d_low,lendb,1,fp);
+			fwrite(&d_high,lendb,1,fp);
+			fwrite(&d_close,lendb,1,fp);
+			fwrite(&d_vol,lendb,1,fp);
+			fflush(fp);
+
+			if (time0 >= i_time + periodseconds)
+			{
+				i_time = time0 / periodseconds;
+				i_time *= periodseconds;
+				d_open = s_open;
+				d_low = s_low;
+				d_high = s_high;
+				d_close = s_close;
+				d_vol = s_vol;
+			}
+		}
+		else
+		{
+			if (d_vol < s_vol) d_vol = s_vol;
+			if (d_low > s_low) d_low = s_low;
+			if (d_high < s_high) d_high = s_high;
+			d_close = s_close;
+		}
+
 	}
 
 	fclose(fraw);
@@ -944,10 +1006,9 @@ bool AppendWeekRAWtoHST1Min(CMyEAClientDlg *pdlg, CTime tmsundaystart)
 }
 
 
-
 /*************************************************
 函数名称:	ThreadRAWtoHSTFunc
-修改日期:    2013-7-15
+修改日期:    2013-10-10
 函数功能:    转换RAW格式表示的1 Min数据到MetaTrader可读的HST文件。更新到最近的周末。
 输入参数: 
  - dwparam 存储了指向CDukascopyToHstDlg实例的指针
@@ -1036,7 +1097,37 @@ void ThreadRAWtoHSTFunc(DWORD dwparam)
 		pdlg->PrintText("转换RAW to HST: %04d-%02d-%02d - %04d-%02d-%02d",tmweekstart.GetYear(),tmweekstart.GetMonth(),
 			tmweekstart.GetDay(),tmweekend.GetYear(),tmweekend.GetMonth(),tmweekend.GetDay());
 
-		if (!AppendWeekRAWtoHST1Min(pdlg,tmweekstart))
+		if (pdlg->m_bM1 && !AppendWeekRAWtoHST(pdlg,tmweekstart, 1))
+		{
+			break;
+		}
+
+		if (pdlg->m_bM5 && !AppendWeekRAWtoHST(pdlg,tmweekstart, 5))
+		{
+			break;
+		}
+
+		if (pdlg->m_bM15 && !AppendWeekRAWtoHST(pdlg,tmweekstart, 15))
+		{
+			break;
+		}
+
+		if (pdlg->m_bM30 && !AppendWeekRAWtoHST(pdlg,tmweekstart, 30))
+		{
+			break;
+		}
+
+		if (pdlg->m_bH1 && !AppendWeekRAWtoHST(pdlg,tmweekstart, 60))
+		{
+			break;
+		}
+
+		if (pdlg->m_bH4 && !AppendWeekRAWtoHST(pdlg,tmweekstart, 60 * 4))
+		{
+			break;
+		}
+
+		if (pdlg->m_bD1 && !AppendWeekRAWtoHST(pdlg,tmweekstart, 60 * 24))
 		{
 			break;
 		}
@@ -1127,22 +1218,20 @@ void CMyEAClientDlg::Init()
 	m_strSymbol.MakeUpper();
 	PrintText("当前Symbol: %s",m_strSymbol);
 
-	int NumberOfDecimalDigits = GetPrivateProfileInt("NumberOfDecimalDigits",m_strSymbol,0,m_strInipath);
-	if (NumberOfDecimalDigits==0)
+	m_NumberOfDecimalDigits = GetPrivateProfileInt("NumberOfDecimalDigits",m_strSymbol,0,m_strInipath);
+	if (m_NumberOfDecimalDigits==0)
 	{
 		if (m_strSymbol.Find("JPY")>=0)
 		{
-			NumberOfDecimalDigits = 3;
+			m_NumberOfDecimalDigits = 3;
 		}
 		else
 		{
-			NumberOfDecimalDigits = 5;
+			m_NumberOfDecimalDigits = 5;
 		}
 	}
 
-	PrintText("小数位数: %d",NumberOfDecimalDigits);
-	m_nDotMultiper = pow(10.0,NumberOfDecimalDigits);
-
+	PrintText("小数位数: %d",m_NumberOfDecimalDigits);
 
 	GetPrivateProfileString("General","PhpPath","Unknown",cline,MAX_PATH,m_strInipath);
 	m_strPhppath = cline;
@@ -1224,6 +1313,8 @@ void CMyEAClientDlg::OnViewClear()
 void CMyEAClientDlg::OnHelpAbout()
 {
 	CString strtm;
+	CAboutDlg dlg;
+	dlg.DoModal();
 
 	/*
 	CTime ctm = CTime::GetCurrentTime();
@@ -1243,6 +1334,7 @@ void CMyEAClientDlg::OnHelpAbout()
 	PrintText(strtm);
 	*/
 
+	/*
 	CTime tmlocal(1970,1,1,10,0,0);
 	PrintText("1970.01.01 10:00:00 GMT: %d ", tmlocal.GetTime());
 
@@ -1262,6 +1354,7 @@ void CMyEAClientDlg::OnHelpAbout()
 	strtm.Format("GMT: %04d.%02d.%02d %02d:%02d:%02d",osTime.tm_year,osTime.tm_mon+1,osTime.tm_mday,
 		osTime.tm_hour,osTime.tm_min,osTime.tm_sec);
 	PrintText(strtm);
+	*/
 	
 }
 
@@ -1300,7 +1393,7 @@ void CMyEAClientDlg::OnFileConvertbintocsvtickfile()
 		}
 
 		m_bBusy = true;
-		ConvertWeekBINtoCSV(this,tm,false);
+		ConvertWeekBINtoCSV(this,tm);
 		PrintText("执行完毕。");
 		m_bBusy = false;
 	}
@@ -1309,14 +1402,14 @@ void CMyEAClientDlg::OnFileConvertbintocsvtickfile()
 
 /*************************************************
 函数名称: IsCSVFileInFolder
-修改日期:    2013-7-16
+修改日期:    2013-10-07
 函数功能: 判断指定目录下是否存在csv文件
 输入参数: 
  - strFolder 指定目录
 输出参数: 
 	无。
 返回值: 
-	有csv文件返回true，否则返回false。
+	有csv文件返回true，否则返回false。如果目录不存在也返回false。
 其他说明:
     输入的字符串必须是目录的路径。
 *************************************************/
@@ -1324,6 +1417,8 @@ void CMyEAClientDlg::OnFileConvertbintocsvtickfile()
 bool CMyEAClientDlg::IsCSVFileInFolder(CString strFolder)
 {
 	NormalizePath(strFolder);
+	if (!PathFileExists(strFolder))
+		return false;
 
 	char FullPath[MAX_PATH];
 	strcpy(FullPath,strFolder);
@@ -1342,47 +1437,83 @@ bool CMyEAClientDlg::IsCSVFileInFolder(CString strFolder)
 		FindClose(hFind);
 		return true;
 	}
-
-	
 }
 
 
 
 void CMyEAClientDlg::OnFileConvertbintoraw1minfile()
 {
-	/*判断中间csv目录中是否存在csv文件*/
+	/*判断是否存在CSV目录，如果存在判断中间CSV目录中是否存在csv文件*/
 	CString strcsvfolder;
 	strcsvfolder.Format("%s%s_csv\\",m_strPhppath,m_strSymbol);
 	if (IsCSVFileInFolder(strcsvfolder))
 	{
-		int ret = MessageBox("中间目录中存在CSV文件，如果CSV文件不完整则可能导致输出数据错误！\r\n确定要继续吗？","Warning",MB_YESNOCANCEL|MB_ICONASTERISK);
-		if (ret != IDYES)
-			return;
+		MessageBox("中间目录"+strcsvfolder+"中存在CSV文件，可能引发数据冲突。\r\n进程无法继续。","Warning",MB_OK|MB_ICONASTERISK);
+		return;
+	}
+
+	/*风险提示警告*/
+	if (IDYES != MessageBox("警告(转换BIN数据到RAW 1Min数据):\r\n\r\n1. 转换前需要保证BIN数据已经下载完毕，程序将不会全面检查，如果存在缺漏的BIN数据则可能导致最终数据的不完整。\r\n\r\n2. 不得关闭转换期间弹出的命令行窗口，否则可能导致数据错误。\r\n\r\n确定继续请按是，退出请按否。","Warning",MB_YESNO|MB_ICONQUESTION))
+	{
+		return;
 	}
 
 	/*开启转换线程*/
 	DWORD ThreadID;
 	HANDLE hThread=CreateThread(NULL,
 		0,
-		(LPTHREAD_START_ROUTINE)ThreadBINtoRAWFunc,
+		(LPTHREAD_START_ROUTINE)ThreadBINtoRAW1MinFunc,
 		(VOID*)this,
 		0,
 		&ThreadID);
 }
 
 
-void CMyEAClientDlg::OnFileConvertraw1minfiletohst1min()
+void CMyEAClientDlg::OnFileConvertraw1minfiletohstfiles()
 {
+	/*风险提示警告*/
+	if (IDYES != MessageBox("警告(转换RAW数据到HST数据): 转换前需要保证RAW数据已经更新完毕，程序将不会全面检查，如果存在缺漏的RAW数据则可能导致最终数据的不完整。\r\n\r\n确定继续请按是，退出请按否。","Warning",MB_YESNO|MB_ICONQUESTION))
+	{
+		return;
+	}
+
+	CPeriodDlg perioddlg;
+	perioddlg.m_bM1 = m_bM1;
+	perioddlg.m_bM5 = m_bM5;
+	perioddlg.m_bM15 = m_bM15;
+	perioddlg.m_bM30 = m_bM30;
+	perioddlg.m_bH1 = m_bH1;
+	perioddlg.m_bH4 = m_bH4;
+	perioddlg.m_bD1 = m_bD1;
+	if (perioddlg.DoModal()==IDOK)
+	{
+		m_bM1 = perioddlg.m_bM1;
+		m_bM5 = perioddlg.m_bM5;
+		m_bM15 = perioddlg.m_bM15;
+		m_bM30 = perioddlg.m_bM30;
+		m_bH1 = perioddlg.m_bH1;
+		m_bH4 = perioddlg.m_bH4;
+		m_bD1 = perioddlg.m_bD1;
+	}
+	else
+	{
+		return;
+	}
+
 	DWORD ThreadID;
 	HANDLE hThread=CreateThread(NULL,
 		0,
 		(LPTHREAD_START_ROUTINE)ThreadRAWtoHSTFunc,
 		(VOID*)this,
 		0,
-		&ThreadID);	
+		&ThreadID);
 }
 
 
+void CMyEAClientDlg::OnUpdateViewClear(CCmdUI *pCmdUI)
+{
+	pCmdUI->Enable(!m_bBusy);
+}
 
 
 void CMyEAClientDlg::OnUpdateFileDownloaddukascopydata(CCmdUI *pCmdUI)
@@ -1396,6 +1527,11 @@ void CMyEAClientDlg::OnUpdateFileConvertbintocsvtickfile(CCmdUI *pCmdUI)
 }
 
 void CMyEAClientDlg::OnUpdateFileConvertbintoraw1minfile(CCmdUI *pCmdUI)
+{
+	pCmdUI->Enable(!m_bBusy);
+}
+
+void CMyEAClientDlg::OnUpdateFileConvertraw1minfiletohstfiles(CCmdUI *pCmdUI)
 {
 	pCmdUI->Enable(!m_bBusy);
 }
@@ -1423,4 +1559,64 @@ BOOL CMyEAClientDlg::ContinueModal()
 	}
 
 	return CDialog::ContinueModal();
+}
+
+
+void CMyEAClientDlg::OnCancel()
+{
+	if (m_bBusy)
+	{
+		MessageBeep(1);
+		return;
+	}
+
+	CDialog::OnCancel();
+}
+
+
+
+
+
+void CMyEAClientDlg::OnFileChangecurrencypair()
+{
+	CPickPairDlg dlg;
+	dlg.m_strpairpath = m_strPairpath;
+	dlg.m_symbol = m_strSymbol;
+	if (dlg.DoModal()==IDOK)
+	{
+		m_strSymbol = dlg.m_symbol;
+		m_strSymbol.Trim();
+		m_strSymbol.MakeUpper();
+
+		PrintText("当前Symbol: %s",m_strSymbol);
+
+		m_NumberOfDecimalDigits = GetPrivateProfileInt("NumberOfDecimalDigits",m_strSymbol,0,m_strInipath);
+		if (m_NumberOfDecimalDigits==0)
+		{
+			if (m_strSymbol.Find("JPY")>=0)
+			{
+				m_NumberOfDecimalDigits = 3;
+			}
+			else
+			{
+				m_NumberOfDecimalDigits = 5;
+			}
+		}
+
+		PrintText("小数位数: %d",m_NumberOfDecimalDigits);
+		SetWindowTextA("MT4 Data Downloader (" + m_strSymbol + ")");
+	}
+}
+
+
+void CMyEAClientDlg::OnUpdateFileChangecurrencypair(CCmdUI *pCmdUI)
+{
+	pCmdUI->Enable(!m_bBusy);
+
+}
+
+
+void CMyEAClientDlg::OnFileExit()
+{
+	OnCancel();
 }

@@ -16,13 +16,11 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// 中文(中华人民共和国) resources
+// Chinese (Simplified, PRC) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)
-#ifdef _WIN32
 LANGUAGE LANG_CHINESE, SUBLANG_CHINESE_SIMPLIFIED
 #pragma code_page(936)
-#endif //_WIN32
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -57,6 +55,34 @@ BEGIN
     DEFPUSHBUTTON   "OK",IDOK,115,7,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,169,7,50,14
     CONTROL         "",IDC_DATETIMEPICKER1,"SysDateTimePick32",DTS_RIGHTALIGN | WS_TABSTOP,7,7,92,15
+END
+
+IDD_DIALOGPERIOD DIALOGEX 0, 0, 258, 87
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "选择需要转换的周期"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,147,66,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,201,66,50,14
+    CONTROL         "M1",IDC_CHECKM1,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,11,50,13
+    CONTROL         "M5",IDC_CHECKM5,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,79,11,50,13
+    CONTROL         "M15",IDC_CHECKM15,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,143,11,50,13
+    CONTROL         "M30",IDC_CHECKM30,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,38,50,13
+    CONTROL         "H1",IDC_CHECKH1,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,79,38,50,13
+    CONTROL         "H4",IDC_CHECKH4,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,143,38,39,13
+    CONTROL         "D1",IDC_CHECKD1,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,193,38,50,13
+    PUSHBUTTON      "Unchek All",IDC_BUTTON1,5,65,54,15
+    PUSHBUTTON      "Check All",IDC_BUTTON2,69,66,54,15
+END
+
+IDD_DIALOG2 DIALOGEX 0, 0, 189, 225
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "选择货币对"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,127,128,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,126,149,50,14
+    COMBOBOX        IDC_COMBO1,9,8,102,209,CBS_SIMPLE | CBS_SORT | WS_VSCROLL | WS_TABSTOP
 END
 
 
@@ -105,7 +131,7 @@ END
 //
 
 #ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO 
+GUIDELINES DESIGNINFO
 BEGIN
     IDD_ABOUTBOX, DIALOG
     BEGIN
@@ -115,12 +141,27 @@ BEGIN
         BOTTOMMARGIN, 55
     END
 
+    IDD_MYEACLIENT_DIALOG, DIALOG
+    BEGIN
+    END
+
     IDD_DIALOGSELECTDATE, DIALOG
     BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 219
         TOPMARGIN, 7
         BOTTOMMARGIN, 23
+    END
+
+    IDD_DIALOGPERIOD, DIALOG
+    BEGIN
+        RIGHTMARGIN, 251
+        BOTTOMMARGIN, 80
+    END
+
+    IDD_DIALOG2, DIALOG
+    BEGIN
+        BOTTOMMARGIN, 217
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -131,23 +172,21 @@ END
 // String Table
 //
 
-STRINGTABLE 
+STRINGTABLE
 BEGIN
     IDS_ABOUTBOX            "关于 MyEAClient(&A)..."
 END
 
-#endif    // 中文(中华人民共和国) resources
+#endif    // Chinese (Simplified, PRC) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////////////////////////////
-// 英语(美国) resources
+// English (United States) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
-#ifdef _WIN32
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 #pragma code_page(1252)
-#endif //_WIN32
 
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
@@ -179,8 +218,8 @@ BEGIN
     "#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_CHS)\r\n"
     "LANGUAGE 4, 2\r\n"
     "#pragma code_page(936)\r\n"
-    "#include ""res\\MyEAClient.rc2""  // 非 Microsoft Visual C++ 编辑的资源\r\n"
-    "#include ""l.CHS\\afxres.rc""      // 标准组件\r\n"
+    "#include ""res\\MyEAClient.rc2""  // ? Microsoft Visual C++ ?????\r\n"
+    "#include ""l.CHS\\afxres.rc""      // ????\r\n"
     "#endif\r\n"
     "\0"
 END
@@ -202,16 +241,18 @@ IDR_MAINFRAME           ICON                    "res\\MyEAClient.ico"
 // Menu
 //
 
-IDR_MENU1 MENU 
+IDR_MENU1 MENU
 BEGIN
     POPUP "File"
     BEGIN
+        MENUITEM "Select Currency Pair...",     ID_FILE_CHANGECURRENCYPAIR
+        MENUITEM SEPARATOR
         MENUITEM "Download Dukascopy Data",     ID_FILE_DOWNLOADDUKASCOPYDATA
         MENUITEM SEPARATOR
         MENUITEM "Convert BIN to CSV tick file", ID_FILE_CONVERTBINTOCSVTICKFILE
         MENUITEM "Convert BIN to RAW 1 min file", ID_FILE_CONVERTBINTORAW1MINFILE
         MENUITEM SEPARATOR
-        MENUITEM "Convert RAW 1 min file to HST 1 min", ID_FILE_CONVERTRAW1MINFILETOHST1MIN
+        MENUITEM "Convert RAW 1 min file to HST files", ID_FILE_CONVERTRAW1MINFILETOHSTFILES
         MENUITEM SEPARATOR
         MENUITEM "Exit",                        ID_FILE_EXIT
     END
@@ -225,7 +266,7 @@ BEGIN
     END
 END
 
-#endif    // 英语(美国) resources
+#endif    // English (United States) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

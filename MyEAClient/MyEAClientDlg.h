@@ -18,12 +18,15 @@ public:
 	CString m_strPhppath;
 	CString m_strDatapath;/*生成hst文件的路径*/
 	CString m_strSymbol;
-	int m_nDotMultiper;/*10的小数位数次幂-以EURUSD为例为100000,以USDJPY为例为1000。报价的小数点后有几位就有几个0.*/
+	int m_NumberOfDecimalDigits;/*小数部分的位数, USDJPY为例为3，EURUSD为例为5*/
 	int m_nServerTimeShift;/*服务器偏移时间，小时计*/
 	int m_nLocalTimeShift;/*本地偏移时间，小时计*/
 
 	bool m_bBusy;/*程序正在进行下载、数据转换等工作。表明不可进行其他操作。*/
 	int m_clientcount;/*通讯于EA窗口*/
+
+
+	BOOL m_bM1, m_bM5, m_bM15, m_bM30, m_bH1, m_bH4, m_bD1;
 
 	//Funcations
 	void Init();
@@ -66,11 +69,17 @@ public:
 	afx_msg void OnViewClear();
 	afx_msg void OnHelpAbout();
 	afx_msg void OnFileConvertbintocsvtickfile();
-	afx_msg void OnFileConvertraw1minfiletohst1min();
 	afx_msg void OnFileConvertbintoraw1minfile();
 	afx_msg void OnUpdateFileDownloaddukascopydata(CCmdUI *pCmdUI);
 	afx_msg void OnUpdateFileConvertbintocsvtickfile(CCmdUI *pCmdUI);
 	afx_msg void OnUpdateFileConvertbintoraw1minfile(CCmdUI *pCmdUI);
 	afx_msg void OnUpdateFileConvertraw1minfiletohst1min(CCmdUI *pCmdUI);
 	virtual BOOL ContinueModal();
+	afx_msg void OnFileConvertraw1minfiletohstfiles();
+	afx_msg void OnUpdateFileConvertraw1minfiletohstfiles(CCmdUI *pCmdUI);
+	virtual void OnCancel();
+	afx_msg void OnUpdateViewClear(CCmdUI *pCmdUI);
+	afx_msg void OnFileChangecurrencypair();
+	afx_msg void OnUpdateFileChangecurrencypair(CCmdUI *pCmdUI);
+	afx_msg void OnFileExit();
 };

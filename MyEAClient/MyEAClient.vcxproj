@@ -119,6 +119,8 @@
   <ItemGroup>
     <ClCompile Include="MyEAClient.cpp" />
     <ClCompile Include="MyEAClientDlg.cpp" />
+    <ClCompile Include="PeriodDlg.cpp" />
+    <ClCompile Include="PickPairDlg.cpp" />
     <ClCompile Include="SelectDateDlg.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -128,6 +130,8 @@
   <ItemGroup>
     <ClInclude Include="MyEAClient.h" />
     <ClInclude Include="MyEAClientDlg.h" />
+    <ClInclude Include="PeriodDlg.h" />
+    <ClInclude Include="PickPairDlg.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="SelectDateDlg.h" />
     <ClInclude Include="stdafx.h" />
