@@ -76,7 +76,8 @@ CMyEAClientDlg::CMyEAClientDlg(CWnd* pParent /*=NULL*/)
 void CMyEAClientDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
-	DDX_Control(pDX, IDC_EDIT1, m_edit);
+	//  DDX_Control(pDX, IDC_EDIT1, m_edit);
+	DDX_Control(pDX, IDC_LIST1, m_listbox);
 }
 
 BEGIN_MESSAGE_MAP(CMyEAClientDlg, CDialog)
@@ -89,7 +90,6 @@ BEGIN_MESSAGE_MAP(CMyEAClientDlg, CDialog)
 //	ON_WM_MOVE()
 //	ON_WM_MOVING()
 	ON_WM_SIZE()
-	ON_EN_SETFOCUS(IDC_EDIT1, &CMyEAClientDlg::OnEnSetfocusEdit1)
 	ON_WM_CTLCOLOR()
 	ON_COMMAND(ID_FILE_DOWNLOADDUKASCOPYDATA, &CMyEAClientDlg::OnFileDownloaddukascopydata)
 	ON_COMMAND(ID_VIEW_CLEAR, &CMyEAClientDlg::OnViewClear)
@@ -367,6 +367,7 @@ void ThreadDownloadBINFunc(DWORD dwparam)
 	CString strout = ReadStringFromFile(strstdfile);
 	pdlg->PrintLog(strout);
 	pdlg->PrintText("执行完毕。");
+	pdlg->GotoLastLine();
 	pdlg->m_bBusy = false;
 
 }
@@ -458,6 +459,7 @@ int ConvertWeekBINtoCSV(CMyEAClientDlg *pdlg, CTime tmsundaystart)
 		else
 		{
 			pdlg->PrintText("命令行程序意外终止。");
+			pdlg->GotoLastLine();
 			DeleteFile(stroutfile);
 			return -1;
 		}
@@ -700,6 +702,7 @@ void ThreadBINtoRAW1MinFunc(DWORD dwparam)
 	{
 		pdlg->PrintText("Bin数据未更新到最近的周末! 请先下载补全。注意：即使没有此提示，也不表示Bin数据的完整性，因此不确定情况下有必要启动下载确认。");
 		pdlg->PrintText("命令执行完毕。");
+		pdlg->GotoLastLine();
 		pdlg->m_bBusy = false;
 		return;
 	}
@@ -761,6 +764,7 @@ void ThreadBINtoRAW1MinFunc(DWORD dwparam)
 	}
 
 	pdlg->PrintText("转换完毕. %d written, %d skipped.", count, skippedcount);
+	pdlg->GotoLastLine();
 	pdlg->m_bBusy = false;
 
 }
@@ -1102,6 +1106,7 @@ void ThreadRAWtoHSTFunc(DWORD dwparam)
 	{
 		pdlg->PrintText("RAW数据未更新到最近的周末! 请先更新.");
 		pdlg->PrintText("命令执行完毕。");
+		pdlg->GotoLastLine();
 		pdlg->m_bBusy = false;
 		return;
 	}
@@ -1171,6 +1176,7 @@ void ThreadRAWtoHSTFunc(DWORD dwparam)
 	}
 
 	pdlg->PrintText("命令执行完毕。");
+	pdlg->GotoLastLine();
 	pdlg->m_bBusy = false;
 
 }
@@ -1185,19 +1191,32 @@ void CMyEAClientDlg::OnSize(UINT nType, int cx, int cy)
 
 	CRect rc0;
 	GetClientRect(&rc0);
-	m_edit.MoveWindow(rc0);
+	m_listbox.MoveWindow(rc0);
 
 }
 
 void CMyEAClientDlg::PrintLog(CString str)
 {
-	int len = m_edit.GetWindowTextLength();
-	m_edit.SetSel(len,len);
 
-	if (str.Right(2)=="\r\n")
-		m_edit.ReplaceSel("============== Log Start ================\r\n" + str + "============== Log End ================\r\n");
-	else
-		m_edit.ReplaceSel("============== Log Start ================\r\n" + str + "\r\n============== Log End ================\r\n");
+	m_listbox.AddString("============== Log Start ================");
+
+	CString strleft;
+	int pos = str.Find("\n");
+	while (pos > 0)
+	{
+		strleft = str.Left(pos);
+		str = str.Mid(pos+1);
+
+		m_listbox.AddString(strleft);
+		pos = str.Find("\n");
+	}
+
+	if (str.GetLength() > 0)
+		m_listbox.AddString(str);
+
+	m_listbox.AddString("============== Log End ================");
+
+
 }
 
 void CMyEAClientDlg::PrintText(LPCTSTR format, ...)
@@ -1211,13 +1230,8 @@ void CMyEAClientDlg::PrintText(LPCTSTR format, ...)
 	str.FormatV(format,args);
 	va_end( args );
 
-	int len = m_edit.GetWindowTextLength();
-	m_edit.SetSel(len,len);
+	m_listbox.AddString(strtm + str);
 
-	if (str.Right(2)=="\r\n")
-		m_edit.ReplaceSel(strtm + str);
-	else
-		m_edit.ReplaceSel(strtm + str + "\r\n");
 
 }
 
@@ -1225,10 +1239,6 @@ void CMyEAClientDlg::PrintText(LPCTSTR format, ...)
 
 void CMyEAClientDlg::Init()
 {
-	CFont *pFont=new CFont;
-	pFont->CreatePointFont(100,_T("Arial"),NULL);
-	m_edit.SetFont(pFont,TRUE);
-	m_edit.SetLimitText(MAXINT);
 
 	/*获取程序所在路径*/
 	char cpath[MAX_PATH];
@@ -1285,10 +1295,6 @@ void CMyEAClientDlg::Init()
 
 }
 
-void CMyEAClientDlg::OnEnSetfocusEdit1()
-{
-	m_edit.SetSel(-1, 0, false);
-}
 
 /*************************************************
 函数名称: OnCtlColor
@@ -1300,6 +1306,7 @@ HBRUSH CMyEAClientDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 {
 	HBRUSH hbr = CDialog::OnCtlColor(pDC, pWnd, nCtlColor);
 
+	/*
 	if(pWnd->GetDlgCtrlID()   ==   IDC_EDIT1)
 	{   
 		int nctl = 200;
@@ -1308,6 +1315,7 @@ HBRUSH CMyEAClientDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 		pDC->SetBkColor(RGB(nctl,nctl,nctl));     //设置背景色   
 		return   hbru;             //这句很重要!   
 	}   
+	*/
 	return hbr;
 }
 
@@ -1335,7 +1343,7 @@ void CMyEAClientDlg::NormalizePath( CString &strpath )
 
 void CMyEAClientDlg::OnViewClear()
 {
-	m_edit.SetWindowText("");
+	m_listbox.ResetContent();
 }
 
 
@@ -1654,4 +1662,11 @@ void CMyEAClientDlg::OnUpdateFileChangecurrencypair(CCmdUI *pCmdUI)
 void CMyEAClientDlg::OnFileExit()
 {
 	OnCancel();
+}
+
+void CMyEAClientDlg::GotoLastLine()
+{
+	int count = m_listbox.GetCount();
+	m_listbox.SetCurSel(count - 1);
+
 }

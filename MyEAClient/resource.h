@@ -24,6 +24,7 @@
 #define IDC_BUTTON1                     1010
 #define IDC_BUTTON2                     1011
 #define IDC_COMBO1                      1012
+#define IDC_LIST1                       1013
 #define ID_FILE_EXIT                    32771
 #define ID_HELP_ABOUT                   32772
 #define ID_FILE_DOWNLOADDUKASCOPYDATA   32773
@@ -54,7 +55,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        133
 #define _APS_NEXT_COMMAND_VALUE         32794
-#define _APS_NEXT_CONTROL_VALUE         1013
+#define _APS_NEXT_CONTROL_VALUE         1014
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

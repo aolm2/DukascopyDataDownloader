@@ -34,6 +34,7 @@ public:
 	void PrintText(LPCTSTR format, ...);
 	void NormalizePath(CString &strpath);
 	bool IsCSVFileInFolder(CString strFolder);
+	void GotoLastLine();
 
 // ππ‘Ï
 public:
@@ -60,10 +61,9 @@ protected:
 
 
 public:
-	CEdit m_edit;
+//	CEdit m_edit;
 	bool m_bcreated;
 	afx_msg void OnSize(UINT nType, int cx, int cy);
-	afx_msg void OnEnSetfocusEdit1();
 	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 	afx_msg void OnFileDownloaddukascopydata();
 	afx_msg void OnViewClear();
@@ -82,4 +82,5 @@ public:
 	afx_msg void OnFileChangecurrencypair();
 	afx_msg void OnUpdateFileChangecurrencypair(CCmdUI *pCmdUI);
 	afx_msg void OnFileExit();
+	CListBox m_listbox;
 };
