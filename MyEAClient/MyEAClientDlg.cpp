@@ -924,7 +924,7 @@ bool AppendWeekRAWtoHST(CMyEAClientDlg *pdlg, CTime tmsundaystart, int period)
 	int count = datalen / PACKSIZE;
 	int lendb = sizeof(double);
 	
-	/*以下代码是对mq4文件的翻译*/
+	/*以下代码是对mq4文件的翻译，并进行了修正*/
 	int i;
 	int periodseconds= period*60;
 
@@ -960,15 +960,42 @@ bool AppendWeekRAWtoHST(CMyEAClientDlg *pdlg, CTime tmsundaystart, int period)
 		fread(&s_vol,lendb,1,fraw);
 		time0 += pdlg->m_nServerTimeShift * 3600;
 
-		if ((time0 >= i_time + periodseconds )||(i==count))
+		if ((time0 >= i_time + periodseconds) && (i  < count))
 		{
-			if ((i==count)&&(time0 < i_time + periodseconds))
-			{
-				if (d_vol < s_vol) d_vol = s_vol;
-				if (d_low > s_low) d_low = s_low;
-				if (d_high < s_high) d_high = s_high;
-				d_close = s_close;
-			}
+			fwrite(&i_time,sizeof(DWORD), 1,fp);
+			fwrite(&d_open,lendb,1,fp);
+			fwrite(&d_low,lendb,1,fp);
+			fwrite(&d_high,lendb,1,fp);
+			fwrite(&d_close,lendb,1,fp);
+			fwrite(&d_vol,lendb,1,fp);
+			fflush(fp);
+
+			i_time = time0 / periodseconds;
+			i_time *= periodseconds;
+			d_open = s_open;
+			d_low = s_low;
+			d_high = s_high;
+			d_close = s_close;
+			d_vol = s_vol;
+
+		}
+		else if ((time0 >= i_time + periodseconds) && (i  == count))
+		{
+			fwrite(&i_time,sizeof(DWORD), 1,fp);
+			fwrite(&d_open,lendb,1,fp);
+			fwrite(&d_low,lendb,1,fp);
+			fwrite(&d_high,lendb,1,fp);
+			fwrite(&d_close,lendb,1,fp);
+			fwrite(&d_vol,lendb,1,fp);
+			fflush(fp);
+
+			i_time = time0 / periodseconds;
+			i_time *= periodseconds;
+			d_open = s_open;
+			d_low = s_low;
+			d_high = s_high;
+			d_close = s_close;
+			d_vol = s_vol;
 
 			fwrite(&i_time,sizeof(DWORD), 1,fp);
 			fwrite(&d_open,lendb,1,fp);
@@ -978,18 +1005,24 @@ bool AppendWeekRAWtoHST(CMyEAClientDlg *pdlg, CTime tmsundaystart, int period)
 			fwrite(&d_vol,lendb,1,fp);
 			fflush(fp);
 
-			if (time0 >= i_time + periodseconds)
-			{
-				i_time = time0 / periodseconds;
-				i_time *= periodseconds;
-				d_open = s_open;
-				d_low = s_low;
-				d_high = s_high;
-				d_close = s_close;
-				d_vol = s_vol;
-			}
 		}
-		else
+		else if ((time0 < i_time + periodseconds) && (i  == count))
+		{
+			if (d_vol < s_vol) d_vol = s_vol;
+			if (d_low > s_low) d_low = s_low;
+			if (d_high < s_high) d_high = s_high;
+			d_close = s_close;
+
+			fwrite(&i_time,sizeof(DWORD), 1,fp);
+			fwrite(&d_open,lendb,1,fp);
+			fwrite(&d_low,lendb,1,fp);
+			fwrite(&d_high,lendb,1,fp);
+			fwrite(&d_close,lendb,1,fp);
+			fwrite(&d_vol,lendb,1,fp);
+			fflush(fp);
+
+		}
+		else /*if ((time0 < i_time + periodseconds) && (i  < count))*/
 		{
 			if (d_vol < s_vol) d_vol = s_vol;
 			if (d_low > s_low) d_low = s_low;
@@ -1507,6 +1540,8 @@ void CMyEAClientDlg::OnFileConvertraw1minfiletohstfiles()
 		(VOID*)this,
 		0,
 		&ThreadID);
+
+
 }
 
 
