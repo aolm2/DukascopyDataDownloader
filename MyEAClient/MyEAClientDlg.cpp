@@ -243,7 +243,7 @@ CString ReadStringFromFile(CString strfilepath)
 	memset(pc,'\0',len+1);
 
 	fseek(infile,0,SEEK_SET);
-	fread(pc, sizeof(char), len, infile);  
+	fread(pc, sizeof(char), len, infile); 
 	fclose(infile);
 
 	CString strout = pc;
@@ -897,6 +897,7 @@ bool AppendWeekRAWtoHST(CMyEAClientDlg *pdlg, CTime tmsundaystart, int period)
 	CTime tmnextsundaystart = tmsundaystart + tmspanweek;
 	CString strRawfile;
 	CString strstartdate, strenddate;
+	int nservertimeshift = pdlg->GetServerTimeShift(tmsundaystart.GetYear(),tmsundaystart.GetMonth(),tmsundaystart.GetDay());
 
 	strstartdate.Format("%04d%02d%02d",tmsundaystart.GetYear(),tmsundaystart.GetMonth(),tmsundaystart.GetDay());
 	strenddate.Format("%04d%02d%02d",tmnextsundaystart.GetYear(),tmnextsundaystart.GetMonth(),tmnextsundaystart.GetDay());
@@ -949,7 +950,7 @@ bool AppendWeekRAWtoHST(CMyEAClientDlg *pdlg, CTime tmsundaystart, int period)
 	d_close = s_close;
 	d_vol = s_vol;
 
-	time0 += pdlg->m_nServerTimeShift * 3600;
+	time0 += nservertimeshift * 3600;
 	i_time = time0 / periodseconds;
 	i_time *= periodseconds;
 
@@ -962,7 +963,7 @@ bool AppendWeekRAWtoHST(CMyEAClientDlg *pdlg, CTime tmsundaystart, int period)
 		fread(&s_high,lendb,1,fraw);
 		fread(&s_close,lendb,1,fraw);
 		fread(&s_vol,lendb,1,fraw);
-		time0 += pdlg->m_nServerTimeShift * 3600;
+		time0 += nservertimeshift * 3600;
 
 		if ((time0 >= i_time + periodseconds) && (i  < count))
 		{
@@ -1062,6 +1063,126 @@ bool AppendWeekRAWtoHST(CMyEAClientDlg *pdlg, CTime tmsundaystart, int period)
 *************************************************/
 
 void ThreadRAWtoHSTFunc(DWORD dwparam)
+{
+	CMyEAClientDlg *pdlg = (CMyEAClientDlg*)dwparam;
+	pdlg->m_bBusy = true;
+	CString strpair = pdlg->m_strSymbol;
+
+	/*计算一天、一周的时间差*/
+	CTime t1( 1999, 3, 20, 8, 0, 0 ); 
+	CTime t2( 1999, 3, 21, 8, 0, 0 ); 
+	CTime t3( 1999, 3, 27, 8, 0, 0 ); 
+	CTimeSpan tmspanday = t2 - t1;
+	CTimeSpan tmspanweek = t3 - t1;
+
+	/*计算最近的行情周末*/
+	CTime curctm = CTime::GetCurrentTime();
+	struct tm gmttm;
+	curctm.GetGmtTm(&gmttm);
+
+	CTime calctm = curctm;
+	if (gmttm.tm_wday == 6 || gmttm.tm_wday == 0)
+	{
+		calctm = curctm + tmspanday+ tmspanday+ tmspanday;
+	}
+
+	while (calctm.GetDayOfWeek() != 1)
+	{
+		calctm -= tmspanday;
+	}
+
+	CTime lastsundayctm = calctm;
+	CTime lastfridayctm = lastsundayctm - tmspanday - tmspanday;
+
+	pdlg->PrintText("最近的周末: %04d-%02d-%02d",
+		lastsundayctm.GetYear(),lastsundayctm.GetMonth(),lastsundayctm.GetDay());
+
+	/*检查RAW数据是否更新到最近的周末*/
+	CTime llastdundayctm = lastsundayctm - tmspanweek;
+	CString strlstrawpath;
+	strlstrawpath.Format("%s%s_raw\\%04d%02d%02d-%04d%02d%02d.raw",pdlg->m_strPhppath,pdlg->m_strSymbol,
+		llastdundayctm.GetYear(),llastdundayctm.GetMonth(),llastdundayctm.GetDay(),
+		lastsundayctm.GetYear(),lastsundayctm.GetMonth(),lastsundayctm.GetDay());
+	if (!PathFileExists(strlstrawpath))
+	{
+		pdlg->PrintText("RAW数据未更新到最近的周末! 请先更新.");
+		pdlg->PrintText("命令执行完毕。");
+		pdlg->GotoLastLine();
+		pdlg->m_bBusy = false;
+		return;
+	}
+
+	/*计算有数据以来的第一个周末*/
+	UINT gmtstarttm = ReadPairGmtStartFrom(pdlg->m_strPairpath,pdlg->m_strSymbol);
+	ASSERT(gmtstarttm > 0);
+	CTime ctm((time_t)gmtstarttm);
+
+	while (ctm.GetDayOfWeek()!=1)
+	{
+		ctm += tmspanday;
+	}
+
+	CTime tmweekstart(ctm.GetYear(),ctm.GetMonth(),ctm.GetDay(),0,0,1);
+	CTime tmweekend = tmweekstart + tmspanweek;
+
+	/*转换RAW to HST*/
+	CString strcmd, stroutfile;
+	CString strstartdate, strenddate;
+	int skippedcount = 0,count = 0;
+
+	CTime tmlastmonday = lastsundayctm + tmspanday;
+	while (tmweekend < tmlastmonday)
+	{
+		pdlg->PrintText("转换RAW to HST: %04d-%02d-%02d - %04d-%02d-%02d",tmweekstart.GetYear(),tmweekstart.GetMonth(),
+			tmweekstart.GetDay(),tmweekend.GetYear(),tmweekend.GetMonth(),tmweekend.GetDay());
+
+		if (pdlg->m_bM1 && !AppendWeekRAWtoHST(pdlg,tmweekstart, 1))
+		{
+			break;
+		}
+
+		if (pdlg->m_bM5 && !AppendWeekRAWtoHST(pdlg,tmweekstart, 5))
+		{
+			break;
+		}
+
+		if (pdlg->m_bM15 && !AppendWeekRAWtoHST(pdlg,tmweekstart, 15))
+		{
+			break;
+		}
+
+		if (pdlg->m_bM30 && !AppendWeekRAWtoHST(pdlg,tmweekstart, 30))
+		{
+			break;
+		}
+
+		if (pdlg->m_bH1 && !AppendWeekRAWtoHST(pdlg,tmweekstart, 60))
+		{
+			break;
+		}
+
+		if (pdlg->m_bH4 && !AppendWeekRAWtoHST(pdlg,tmweekstart, 60 * 4))
+		{
+			break;
+		}
+
+		if (pdlg->m_bD1 && !AppendWeekRAWtoHST(pdlg,tmweekstart, 60 * 24))
+		{
+			break;
+		}
+
+		tmweekstart += tmspanweek;
+		tmweekend = tmweekstart + tmspanweek;
+
+	}
+
+	pdlg->PrintText("命令执行完毕。");
+	pdlg->GotoLastLine();
+	pdlg->m_bBusy = false;
+
+}
+
+void ThreadRAWtoHSTW1MNFunc(DWORD dwparam)
 {
 	CMyEAClientDlg *pdlg = (CMyEAClientDlg*)dwparam;
 	pdlg->m_bBusy = true;
@@ -1288,10 +1409,12 @@ void CMyEAClientDlg::Init()
 
 	m_nServerTimeShift = GetPrivateProfileInt("General","ServerTimeShift",0,m_strInipath);
 	m_nLocalTimeShift = GetPrivateProfileInt("General","LocalTimeShift",0,m_strInipath);
+	int dst = GetPrivateProfileInt("General","DSTTime",0,m_strInipath);
+	m_bDSTTime = (dst == 1);
 	PrintText("Ini文件已载入.");
 
 	/*其他*/
-	SetWindowTextA("MT4 Data Downloader (" + m_strSymbol + ")");
+	SetWindowTextA("MT4 Forex Data Downloader (" + m_strSymbol + ")");
 
 }
 
@@ -1306,8 +1429,7 @@ HBRUSH CMyEAClientDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 {
 	HBRUSH hbr = CDialog::OnCtlColor(pDC, pWnd, nCtlColor);
 
-	/*
-	if(pWnd->GetDlgCtrlID()   ==   IDC_EDIT1)
+	if(pWnd->GetDlgCtrlID()   ==   IDC_LIST1)
 	{   
 		int nctl = 200;
 		HBRUSH   hbru   =   ::CreateSolidBrush   (RGB(nctl,nctl,nctl));  
@@ -1315,7 +1437,7 @@ HBRUSH CMyEAClientDlg::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 		pDC->SetBkColor(RGB(nctl,nctl,nctl));     //设置背景色   
 		return   hbru;             //这句很重要!   
 	}   
-	*/
+
 	return hbr;
 }
 
@@ -1647,7 +1769,7 @@ void CMyEAClientDlg::OnFileChangecurrencypair()
 		}
 
 		PrintText("小数位数: %d",m_NumberOfDecimalDigits);
-		SetWindowTextA("MT4 Data Downloader (" + m_strSymbol + ")");
+		SetWindowTextA("MT4 Forex Data Downloader (" + m_strSymbol + ")");
 	}
 }
 
@@ -1668,5 +1790,72 @@ void CMyEAClientDlg::GotoLastLine()
 {
 	int count = m_listbox.GetCount();
 	m_listbox.SetCurSel(count - 1);
+
+}
+
+int CMyEAClientDlg::GetServerTimeShift(int year, int month, int day)
+{
+	if (m_bDSTTime)
+	{
+		bool bdst = false;
+		int count, d, lastd;
+		if ((month > 3) && (month < 11))
+		{
+			bdst = true;
+		}
+		else if (month == 3)
+		{
+			count = 0;
+			d = 1;
+			lastd = 1;
+			while (d<32)
+			{
+				CTime t(year,month,d,0,0,1);
+				if (t.GetDayOfWeek()==7)
+				{
+					count++;
+					lastd = d;
+				}
+				if (count==2)
+					break;
+				d++;
+			}
+
+			if (day >= lastd)
+				bdst = true;
+
+
+		}
+		else if (month == 11)
+		{
+			d = 1;
+			lastd = 1;
+			while (d>10)
+			{
+				CTime t(year,month,d,0,0,1);
+				if (t.GetDayOfWeek()==7)
+				{
+					lastd = d;
+					break;
+				}
+
+				d++;
+			}
+			if (day < lastd)
+				bdst = true;
+
+		}
+
+		if (bdst)
+			return m_nServerTimeShift+1;
+		else
+			return m_nServerTimeShift;
+
+
+	}
+	else
+	{
+		return m_nServerTimeShift;
+	}
 
 }

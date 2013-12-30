@@ -21,6 +21,7 @@ public:
 	int m_NumberOfDecimalDigits;/*小数部分的位数, USDJPY为例为3，EURUSD为例为5*/
 	int m_nServerTimeShift;/*服务器偏移时间，小时计*/
 	int m_nLocalTimeShift;/*本地偏移时间，小时计*/
+	bool m_bDSTTime;/*是否使用夏令时，只针对美国服务器*/
 
 	bool m_bBusy;/*程序正在进行下载、数据转换等工作。表明不可进行其他操作。*/
 	int m_clientcount;/*通讯于EA窗口*/
@@ -35,6 +36,8 @@ public:
 	void NormalizePath(CString &strpath);
 	bool IsCSVFileInFolder(CString strFolder);
 	void GotoLastLine();
+
+	int GetServerTimeShift(int year, int month, int day);/*返回服务器偏移时间*/
 
 // 构造
 public:
